@@ -135,7 +135,7 @@ int main(int argc, char ** argv)
   geometry_msgs::msg::PoseStamped approach_object_1;
   approach_object_1.header.frame_id = "world";
   approach_object_1.pose.position.x = -0.17;
-  approach_object_1.pose.position.y = 0.16;
+  approach_object_1.pose.position.y = 0.163;
   approach_object_1.pose.position.z = 1.2;
   approach_object_1.pose.orientation.x = q.getX();
   approach_object_1.pose.orientation.y = q.getY();
@@ -145,8 +145,8 @@ int main(int argc, char ** argv)
   geometry_msgs::msg::PoseStamped pick_object_1;
   pick_object_1.header.frame_id = "world";
   pick_object_1.pose.position.x = -0.17;
-  pick_object_1.pose.position.y = 0.16;
-  pick_object_1.pose.position.z = 1.05;
+  pick_object_1.pose.position.y = 0.163;
+  pick_object_1.pose.position.z = 1.067;
   pick_object_1.pose.orientation.x = q.getX();
   pick_object_1.pose.orientation.y = q.getY();
   pick_object_1.pose.orientation.z = q.getZ();
@@ -155,7 +155,7 @@ int main(int argc, char ** argv)
   geometry_msgs::msg::PoseStamped approach_object_2;
   approach_object_2.header.frame_id = "world";
   approach_object_2.pose.position.x = -0.17;
-  approach_object_2.pose.position.y = -0.10;
+  approach_object_2.pose.position.y = -0.103;
   approach_object_2.pose.position.z = 1.2;
   approach_object_2.pose.orientation.x = q.getX();
   approach_object_2.pose.orientation.y = q.getY();
@@ -165,8 +165,8 @@ int main(int argc, char ** argv)
   geometry_msgs::msg::PoseStamped pick_object_2;
   pick_object_2.header.frame_id = "world";
   pick_object_2.pose.position.x = -0.17;
-  pick_object_2.pose.position.y = -0.10;
-  pick_object_2.pose.position.z = 1.05;
+  pick_object_2.pose.position.y = -0.103;
+  pick_object_2.pose.position.z = 1.067;
   pick_object_2.pose.orientation.x = q.getX();
   pick_object_2.pose.orientation.y = q.getY();
   pick_object_2.pose.orientation.z = q.getZ();
@@ -246,6 +246,56 @@ int main(int argc, char ** argv)
   open_gripper(set_io_client);
 
   planning_components->setStartStateToCurrentState();
+  planning_components->setGoal(approach_object_2, "tool_tip");
+  const moveit_cpp::PlanningComponent::PlanSolution from_pick2_to_approach2 = planning_components->plan();
+  if(!from_pick2_to_approach2)
+  {
+    RCLCPP_INFO(node->get_logger(), "Planning to pick 2 failed.");
+    rclcpp::shutdown();
+    return 0;
+  }
+
+  moveit_cpp_ptr->execute("arm", from_pick2_to_approach2.trajectory);
+  moveit_cpp_ptr->execute("arm", to_pick2.trajectory);
+
+  moveit_cpp_ptr->execute("arm", to_pick2.trajectory);
+  close_gripper(set_io_client);
+  moveit_cpp_ptr->execute("arm", from_pick2_to_approach2.trajectory);
+  planning_components->setStartStateToCurrentState();
+  planning_components->setGoal(approach_object_1, "tool_tip");
+  const moveit_cpp::PlanningComponent::PlanSolution from_approach2_to_approach1 = planning_components->plan();
+  if(!from_approach2_to_approach1)
+  {
+    RCLCPP_INFO(node->get_logger(), "Planning to pick 2 failed.");
+    rclcpp::shutdown();
+    return 0;
+  }
+  moveit_cpp_ptr->execute("arm", from_approach2_to_approach1.trajectory);
+  moveit_cpp_ptr->execute("arm", to_pick1.trajectory);
+  open_gripper(set_io_client);
+  moveit_cpp_ptr->execute("arm", to_approach1_1.trajectory);
+ 
+
+
+  for(int i = 0; i < 10; i++)
+  {
+    moveit_cpp_ptr->execute("arm", to_pick1.trajectory);
+    close_gripper(set_io_client);
+    moveit_cpp_ptr->execute("arm", to_approach1_1.trajectory);
+    moveit_cpp_ptr->execute("arm", to_approach2.trajectory);
+    moveit_cpp_ptr->execute("arm", to_pick2.trajectory);
+    open_gripper(set_io_client);
+    moveit_cpp_ptr->execute("arm", from_pick2_to_approach2.trajectory);
+    moveit_cpp_ptr->execute("arm", to_pick2.trajectory);
+    close_gripper(set_io_client);
+    moveit_cpp_ptr->execute("arm", from_pick2_to_approach2.trajectory);
+    moveit_cpp_ptr->execute("arm", from_approach2_to_approach1.trajectory);
+    moveit_cpp_ptr->execute("arm", to_pick1.trajectory);
+    open_gripper(set_io_client);
+    moveit_cpp_ptr->execute("arm", to_approach1_1.trajectory);
+  }
+
+  planning_components->setStartStateToCurrentState();
   planning_components->setGoal(start_position, "tool_tip");
   const moveit_cpp::PlanningComponent::PlanSolution to_final_pos = planning_components->plan();
   if(!to_final_pos)
@@ -255,7 +305,6 @@ int main(int argc, char ** argv)
     return 0;
   }
   moveit_cpp_ptr->execute("arm", to_final_pos.trajectory);
-
   rclcpp::sleep_for(std::chrono::seconds(5));
   rclcpp::shutdown();
   return 0;

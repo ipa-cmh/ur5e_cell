@@ -7,6 +7,7 @@ def generate_launch_description():
     moveit_config = (
         MoveItConfigsBuilder("ur5e_workcell", package_name="ur5e_cell_moveit_config")
         .robot_description(file_path="config/ur5e_workcell.urdf.xacro")
+        .trajectory_execution(file_path="config/moveit_controllers.yaml")
         .moveit_cpp(
             file_path=get_package_share_directory("ur5e_cell_pick_n_place")
             + "/config/moveitcpp.yaml"
