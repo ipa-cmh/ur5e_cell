@@ -23,6 +23,7 @@ protected:
   moveit_cpp::MoveItCppPtr moveit_cpp_;
   moveit_cpp::PlanningComponentPtr planning_component_;
   std::string planning_group_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_publisher_;
 
 public:
   DetectArucoNode(const std::string& name, const BT::NodeConfiguration& config)
@@ -38,6 +39,7 @@ public:
     planning_component_ =
         config.blackboard->get<moveit_cpp::PlanningComponentPtr>("planning_component");
     planning_group_ = config.blackboard->get<std::string>("planning_group");
+    marker_publisher_ = node_->create_publisher<visualization_msgs::msg::Marker>("~/marker", 10);
   }
 
   void getMarkerCallback(const aruco_msgs::msg::MarkerArray& msg)
@@ -48,22 +50,25 @@ public:
       RCLCPP_INFO(node_->get_logger(), "Checking for marker ID: %d", marker_id);
 
       auto func = [marker_id](const aruco_msgs::msg::Marker& x) { return (int)x.id == marker_id; };
-
+      //RCLCPP_INFO(node_->get_logger(), "MarkerArray: %s", aruco_msgs::msg::to_yaml(msg).c_str());
       // Find marker with our ID
       auto res = std::find_if(msg.markers.begin(), msg.markers.end(), std::move(func));
-
+      
       // If marker with our ID is found, store it for later processing.
       if (res != msg.markers.end())
       {
+        
         geometry_msgs::msg::PoseStamped marker_posestamped;
         marker_posestamped.header = res->header;
         marker_posestamped.pose = res->pose.pose;
         res_markers_.push_back(marker_posestamped);
         counter_++;
+        RCLCPP_INFO(node_->get_logger(), "Counter: %d", counter_.load());
       }
       if (required_poses_.load() == counter_.load())
       {
         online_.store(false);
+        timer_->cancel();
       }
     }
   }
@@ -87,7 +92,7 @@ public:
 
   BT::NodeStatus onStart() override
   {
-    RCLCPP_INFO(node_->get_logger(), "Initialising motion execution");
+    RCLCPP_INFO(node_->get_logger(), "Initialising Aruco Detection.");
     if (!getInput<int>("marker_id").has_value())
     {
       RCLCPP_ERROR(node_->get_logger(), "No marker id provided");
@@ -99,9 +104,11 @@ public:
     int timeout = getInput<int>("timeout").value();
 
     online_.store(true);
+    counter_.store(0);
     timer_ = node_->create_wall_timer(std::chrono::milliseconds(timeout), [this]() {
       if (online_.load())
       {
+        RCLCPP_INFO(node_->get_logger(), "Aruco Detection timed out.");
         online_.store(false);
         error_.store(true);
       }
@@ -114,6 +121,7 @@ public:
   {
     if (!online_.load())
     {
+      RCLCPP_INFO(node_->get_logger(), "Aruco Detection done.");
       if (error_.load())
       {
         RCLCPP_ERROR(node_->get_logger(),
@@ -164,6 +172,22 @@ public:
         pick_pose.pose.position.y = average_pose.pose.position.y;
         pick_pose.pose.position.z =
             average_pose.pose.position.z + getInput<double>("pick-z-offset").value();
+
+        RCLCPP_INFO(node_->get_logger(), "Pick_Pose: %s", geometry_msgs::msg::to_yaml(pick_pose).c_str());
+        RCLCPP_INFO(node_->get_logger(), "Pre_Pose: %s", geometry_msgs::msg::to_yaml(pre_pose).c_str());
+
+        visualization_msgs::msg::Marker pick_pose_marker;
+        pick_pose_marker.header.frame_id="world";
+        pick_pose_marker.id=20000;
+        pick_pose_marker.type=visualization_msgs::msg::Marker::CUBE;
+        pick_pose_marker.action=visualization_msgs::msg::Marker::ADD;
+        pick_pose_marker.pose = pick_pose.pose;
+        pick_pose_marker.scale.x = 1.0;
+        pick_pose_marker.scale.y = 1.0;
+        pick_pose_marker.scale.z = 1.0;
+        pick_pose_marker.color.r = 1.0;
+
+        marker_publisher_->publish(pick_pose_marker);
 
         auto pick_state = moveit_cpp_->getCurrentState();
         auto pre_state = moveit_cpp_->getCurrentState();
@@ -216,7 +240,7 @@ public:
         return BT::NodeStatus::SUCCESS;
       }
     }
-    return BT::NodeStatus::FAILURE;
+    return BT::NodeStatus::RUNNING;
   }
 
   void onHalted() override
