@@ -85,7 +85,7 @@ public:
     tree_ =
         std::make_shared<BT::Tree>(factory_->createTreeFromFile(file_name, config_->blackboard));
 
-    while (tree_->rootNode()->status() != BT::NodeStatus::SUCCESS)
+    while (tree_->rootNode()->status() != BT::NodeStatus::SUCCESS || tree_->rootNode()->status() != BT::NodeStatus::FAILURE)
     {
       tree_->rootNode()->executeTick();
       rclcpp::sleep_for(std::chrono::milliseconds(1));
