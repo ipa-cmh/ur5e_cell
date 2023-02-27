@@ -16,7 +16,7 @@ int main(int argc, char** argv)
     executor.spin();
     executor.remove_node(node->get_node_base_interface());
   });
-  rclcpp::sleep_for(std::chrono::seconds(1));
+  rclcpp::sleep_for(std::chrono::seconds(2));
   ManipulationBehaviorManager manager(node, "arm");
   manager.start_behaviour();
   rclcpp::sleep_for(std::chrono::seconds(5));
