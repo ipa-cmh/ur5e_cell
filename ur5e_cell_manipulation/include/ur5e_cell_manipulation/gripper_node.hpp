@@ -28,6 +28,7 @@ public:
     client_ = node_->create_client<ur_msgs::srv::SetIO>("/io_and_status_controller/set_io");
     command_send_pin_0_ = false;
     command_send_pin_1_ = false;
+    error_.store(false);
   }
 
   static BT::PortsList providedPorts()
@@ -36,7 +37,7 @@ public:
       BT::InputPort<std::string>("action"),
       BT::InputPort<int>("pin_0"),
       BT::InputPort<int>("pin_1"),
-      BT::InputPort<int>("timeout_ms", 100, "The timeout, default is 100ms."),
+      BT::InputPort<int>("timeout_ms", 1000, "The timeout, default is 100ms."),
       BT::InputPort<bool>("fake", true, "If this is only faked."),
     };
   }
@@ -76,6 +77,7 @@ public:
                   action.c_str(), pin_0, pin_1, timeout_ms);
       return BT::NodeStatus::SUCCESS;
     }
+    error_.store(false);
     RCLCPP_INFO(node_->get_logger(),
                 "Start %s gripper on pin_0:= %hhi, pin_1:=%hhi with timeout: %hi ms",
                 action.c_str(), pin_0, pin_1, timeout_ms);
@@ -119,7 +121,7 @@ public:
     request_pin_0->fun = ur_msgs::srv::SetIO::Request::FUN_SET_DIGITAL_OUT;
     request_pin_1->fun = ur_msgs::srv::SetIO::Request::FUN_SET_DIGITAL_OUT;
     request_pin_0->pin = pin_0;
-    request_pin_1->pin = pin_0;
+    request_pin_1->pin = pin_1;
 
     if (action == "open")
     {
